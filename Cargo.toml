@@ -9,3 +9,4 @@ repository = "https://github.com/Valkyrja-Design/smol-wasm.git"
 
 [dependencies]
 leb128 = "0.2.5"
+wat = "1.76.0"
