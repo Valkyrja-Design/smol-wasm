@@ -1,0 +1,10 @@
+[package]
+name = "smol-wasm"
+version = "0.1.0"
+edition = "2021"
+authors = ["Valkyrja-Design"]
+description = "A smol wasm runtime"
+readme = "README.md"
+repository = "https://github.com/Valkyrja-Design/smol-wasm.git"
+
+[dependencies]
