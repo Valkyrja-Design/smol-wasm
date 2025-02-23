@@ -8,3 +8,4 @@ readme = "README.md"
 repository = "https://github.com/Valkyrja-Design/smol-wasm.git"
 
 [dependencies]
+leb128 = "0.2.5"
