@@ -1,0 +1,56 @@
+module    → magic_number
+            version
+            type_section?
+            import_section?
+            function_section?
+            table_section?
+            memory_section?
+            global_section?
+            export_section?
+            start_section?
+            element_section?
+            data_count_section?
+            code_section?
+            data_section?
+
+// custom_section      → (CUSTOM_SECTION        = 0) SECTION_SIZE
+type_section        → (TYPE_SECTION          = 1)
+                    SECTION_SIZE
+                    NUM_TYPES
+                    fun_types{NUM_TYPES}
+fun_types           → func_byte
+                    NUM_PARAMS
+                    val_type{NUM_PARAMS}
+                    NUM_RESULTS
+                    val_type{NUM_RESULTS}
+
+val_type            → num_type
+                    | vec_type
+                    | ref_type
+
+num_type            → (i32 = 0x7f)
+                    | (i64 = 0x7e)
+                    | (f32 = 0x7d)
+                    | (f64 = 0x7c)
+
+vec_type            → (v128 = 0x7b)
+
+ref_type            → (funcref = 0x70)
+                    | (externref = 0x6f)
+
+import_section      → (IMPORT_SECTION        = 0x02) SECTION_SIZE
+function_section    → (FUNCTION_SECTION      = 0x03) SECTION_SIZE
+table_section       → (TABLE_SECTION         = 0x04) SECTION_SIZE
+memory_section      → (MEMORY_SECTION        = 0x05) SECTION_SIZE
+global_section      → (GLOBAL_SECTION        = 0x06) SECTION_SIZE
+export_section      → (EXPORT_SECTION        = 0x07) SECTION_SIZE
+start_section       → (START_SECTION         = 0x08) SECTION_SIZE
+element_section     → (ELEMENT_SECTION       = 0x09) SECTION_SIZE
+code_section        → (CODE_SECTION          = 0x0a) SECTION_SIZE
+data_section        → (DATA_SECTION          = 0x0b) SECTION_SIZE
+data_count_section  → (DATA_COUNT_SECTION    = 0x0c) SECTION_SIZE
+
+
+magic_number        → '\0asm'
+version             → 0x00000001
+func_byte           → 0x60
