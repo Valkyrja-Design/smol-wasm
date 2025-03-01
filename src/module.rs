@@ -1,13 +1,16 @@
-use std::path;
 use std::fs;
 use std::io::*;
+use std::path;
 
 mod parser;
+mod section;
+mod types;
 
 #[derive(Debug)]
 pub struct Module {
     pub magic_number: String,
     pub version: u32,
+    pub type_section: Option<section::TypeSection>,
 }
 
 impl Module {
@@ -31,16 +34,12 @@ impl Module {
         parser.parse()
     }
 
-    pub fn decode_raw_bytes(
-        binary: &str,
-        bytes: &[u8],
-    ) -> std::result::Result<Module, String> {
+    pub fn decode_raw_bytes(binary: &str, bytes: &[u8]) -> std::result::Result<Module, String> {
         let mut parser = parser::Parser::new(binary, bytes);
 
         parser.parse()
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -55,7 +54,7 @@ mod tests {
         assert_eq!(module.version, 1u32, "{:#?}", module);
 
         module = Module::decode_file("tests/minimal.wasm").unwrap();
-        
+
         assert_eq!(module.magic_number, "\0asm", "{:#?}", module);
         assert_eq!(module.version, 1u32, "{:#?}", module);
     }
