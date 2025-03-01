@@ -33,7 +33,7 @@ impl Parser {
 
         self.curr_pos = 4;
 
-        let version = self.parse_leb128_unsigned(4)? as u32;
+        let version = self.parse_u32()?;
         let type_section = self.parse_type_section()?;
         let module = super::Module {
             magic_number,
@@ -42,6 +42,19 @@ impl Parser {
         };
 
         Ok(module)
+    }
+
+    fn parse_u32(&mut self) -> std::result::Result<u32, String> {
+        let input = &self.bytes[self.curr_pos..];
+        let (int_bytes, _) = input.split_at(std::mem::size_of::<u32>());
+    
+        match int_bytes.try_into() {
+            Err(err) => Err(format!("{}", err)),
+            Ok(bytes) => {
+                self.curr_pos += 4;
+                Ok(u32::from_le_bytes(bytes))
+            }
+        }
     }
 
     pub fn parse_type_section(
@@ -56,8 +69,8 @@ impl Parser {
 
             self.curr_pos += 1;
 
-            let sec_size = self.parse_leb128_unsigned(4)? as usize;
-            let ntypes = self.parse_leb128_unsigned(4)? as usize;
+            let sec_size = self.parse_leb128_unsigned()? as usize;
+            let ntypes = self.parse_leb128_unsigned()? as usize;
             let func_types = self.parse_func_types(ntypes)?;
 
             return Ok(Some(section::TypeSection {
@@ -70,44 +83,35 @@ impl Parser {
         Ok(None)
     }
 
-    fn parse_leb128_unsigned(&mut self, size: usize) -> std::result::Result<u64, String> {
-        if self.curr_pos + size > self.nbytes {
-            return Err(format!("expected {} bytes of unsigned LEB128 encoded integer", size));
-        }
+    fn parse_leb128_unsigned(&mut self) -> std::result::Result<u64, String> {
+        let mut slice = &self.bytes[self.curr_pos..];
+        let prev_len = slice.len();
 
-        match leb128::read::unsigned(&mut &self.bytes[self.curr_pos..self.curr_pos + 4]) {
+        match leb128::read::unsigned(&mut slice) {
             Err(err) => Err(format!(
-                "expected {} bytes of unsigned LEB128 encoded integer: {}",
-                size, err
+                "expected unsigned LEB128 encoded integer: {}", err
             )),
             Ok(x) => {
-                self.curr_pos += size;
+                self.curr_pos += prev_len - slice.len();
                 Ok(x)
             }
         }
     }
 
-    // fn parse_leb128_signed(&mut self, size: usize) -> std::result::Result<i64, String> {
-    //     if self.curr_pos + size > self.nbytes {
-    //         return Err(format!("expected {} bytes of signed LEB128 encoded integer", size));
-    //     }
-
-    //     match leb128::read::signed(&mut &self.bytes[self.curr_pos..self.curr_pos + 4]) {
-    //         Err(err) => Err(format!(
-    //             "expected {} bytes of signed LEB128 encoded integer: {}",
-    //             size, err
-    //         )),
-    //         Ok(x) => {
-    //             self.curr_pos += size;
-    //             Ok(x)
-    //         }
-    //     }
-    // }
-
     fn parse_func_types(
         &mut self,
         ntypes: usize,
     ) -> std::result::Result<Vec<types::FuncType>, String> {
+        let mut func_types: Vec<types::FuncType> = Vec::with_capacity(ntypes);
+
+        for _ in 0..ntypes {
+            func_types.push(self.parse_func_type()?);
+        }
+
+        Ok(func_types)
+    }
+
+    fn parse_func_type(&mut self) -> std::result::Result<types::FuncType, String> {
         if self.curr_pos >= self.nbytes {
             return Err(String::from("expected function byte (0x60)"));
         }
@@ -115,16 +119,28 @@ impl Parser {
         let _func_byte = self.bytes[self.curr_pos];
         self.curr_pos += 1;
 
-        let func_types: Vec<types::FuncType> = Vec::with_capacity(ntypes);
+        let nparams = self.parse_leb128_unsigned()? as usize;
+        let params = self.parse_value_types(nparams)?;
+        let nresults = self.parse_leb128_unsigned()? as usize;
+        let results = self.parse_value_types(nresults)?;
 
-        Ok(func_types)
+        Ok(types::FuncType { params, results })
     }
 
     fn parse_value_types(
-        &self,
+        &mut self,
         ntypes: usize,
     ) -> std::result::Result<Vec<types::ValueType>, String> {
-        let value_types: Vec<types::ValueType> = Vec::with_capacity(ntypes);
+        let mut value_types: Vec<types::ValueType> = Vec::with_capacity(ntypes);
+
+        for _ in 0..ntypes {
+            if self.curr_pos >= self.nbytes {
+                return Err(String::from("expected value type"));
+            }
+
+            value_types.push(types::ValueType::from(self.bytes[self.curr_pos]));
+            self.curr_pos += 1;
+        }
 
         Ok(value_types)
     }
@@ -136,10 +152,28 @@ mod tests {
 
     #[test]
     fn leb128_unsigned() {
-        let bytes: &[u8] = &[0xcb, 0xbe, 0xf1, 0x23];
+        let mut bytes: &[u8] = &[0xcb, 0xbe, 0xf1, 0x23];
         let mut parser = Parser::new("#raw", bytes);
-        let i = parser.parse_leb128_unsigned(4);
+        let i = parser.parse_leb128_unsigned();
 
         assert_eq!(i, Ok(75259723), "{:#?}", i);
+        assert_eq!(parser.curr_pos, 4);
+
+        bytes = &[0x02, 0x00, 0x00];
+        parser = Parser::new("#raw", bytes);
+        let i = parser.parse_leb128_unsigned();
+
+        assert_eq!(i, Ok(2), "{:#?}", i);
+        assert_eq!(parser.curr_pos, 1);
+    }
+
+    #[test]
+    fn functions() {
+        let binary = wat::parse_file("tests/functions.wat").unwrap();
+        let mut parser = Parser::new("#raw", &binary);
+        let res = parser.parse();
+
+        assert!(res.is_ok());
+        assert_eq!(parser.curr_pos, 0x11);
     }
 }

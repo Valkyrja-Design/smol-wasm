@@ -58,4 +58,28 @@ mod tests {
         assert_eq!(module.magic_number, "\0asm", "{:#?}", module);
         assert_eq!(module.version, 1u32, "{:#?}", module);
     }
+
+    #[test]
+    fn functions() {
+        let binary = wat::parse_file("tests/functions.wat").unwrap();
+        let mut module = Module::decode_raw_bytes("#raw", &binary).unwrap();
+        let type_section = Some(section::TypeSection {
+            sec_code: section::SectionCode::Type,
+            sec_size: 0x07,
+            func_types: vec![types::FuncType {
+                params: vec![types::ValueType::I32, types::ValueType::I64],
+                results: vec![types::ValueType::I64],
+            }],
+        });
+
+        assert_eq!(module.magic_number, "\0asm", "{:#?}", module);
+        assert_eq!(module.version, 1u32, "{:#?}", module);
+        assert_eq!(module.type_section, type_section);
+        
+        module = Module::decode_file("tests/functions.wasm").unwrap();
+
+        assert_eq!(module.magic_number, "\0asm", "{:#?}", module);
+        assert_eq!(module.version, 1u32, "{:#?}", module);
+        assert_eq!(module.type_section, type_section);
+    }
 }
