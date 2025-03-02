@@ -21,10 +21,12 @@ impl Parser {
     pub fn parse(&mut self) -> std::result::Result<super::Module, String> {
         let (magic_number, version) = self.parse_preamble()?;
         let type_section = self.parse_type_section()?;
+        let func_section = self.parse_func_section()?;
         let module = super::Module {
             magic_number,
             version,
             type_section,
+            func_section,
         };
 
         Ok(module)
@@ -50,58 +52,30 @@ impl Parser {
         Ok((magic_number, version))
     }
 
-    fn parse_u32(&mut self) -> std::result::Result<u32, String> {
-        let input = &self.bytes[self.curr_pos..];
-        let (int_bytes, _) = input.split_at(std::mem::size_of::<u32>());
-    
-        match int_bytes.try_into() {
-            Err(err) => Err(format!("{}", err)),
-            Ok(bytes) => {
-                self.curr_pos += 4;
-                Ok(u32::from_le_bytes(bytes))
-            }
-        }
-    }
-
     pub fn parse_type_section(
         &mut self,
     ) -> std::result::Result<Option<section::TypeSection>, String> {
-        if self.curr_pos < self.nbytes {
-            let sec_code = section::SectionCode::from(self.bytes[self.curr_pos]);
-
-            if sec_code != section::SectionCode::Type {
-                return Ok(None);
-            }
-
-            self.curr_pos += 1;
-
-            let sec_size = self.parse_leb128_unsigned()? as usize;
-            let ntypes = self.parse_leb128_unsigned()? as usize;
-            let func_types = self.parse_func_types(ntypes)?;
-
-            return Ok(Some(section::TypeSection {
-                sec_code,
-                sec_size,
-                func_types,
-            }));
+        if self.curr_pos >= self.nbytes {
+            return Ok(None);
         }
 
-        Ok(None)
-    }
+        let sec_code = section::SectionCode::from(self.bytes[self.curr_pos]);
 
-    fn parse_leb128_unsigned(&mut self) -> std::result::Result<u64, String> {
-        let mut slice = &self.bytes[self.curr_pos..];
-        let prev_len = slice.len();
-
-        match leb128::read::unsigned(&mut slice) {
-            Err(err) => Err(format!(
-                "expected unsigned LEB128 encoded integer: {}", err
-            )),
-            Ok(x) => {
-                self.curr_pos += prev_len - slice.len();
-                Ok(x)
-            }
+        if sec_code != section::SectionCode::Type {
+            return Ok(None);
         }
+
+        self.curr_pos += 1;
+
+        let sec_size = self.parse_leb128_unsigned()? as usize;
+        let ntypes = self.parse_leb128_unsigned()? as usize;
+        let func_types = self.parse_func_types(ntypes)?;
+
+        Ok(Some(section::TypeSection {
+            sec_code,
+            sec_size,
+            func_types,
+        }))
     }
 
     fn parse_func_types(
@@ -149,6 +123,60 @@ impl Parser {
         }
 
         Ok(value_types)
+    }
+
+    fn parse_u32(&mut self) -> std::result::Result<u32, String> {
+        let input = &self.bytes[self.curr_pos..];
+        let (int_bytes, _) = input.split_at(std::mem::size_of::<u32>());
+
+        match int_bytes.try_into() {
+            Err(err) => Err(format!("{}", err)),
+            Ok(bytes) => {
+                self.curr_pos += 4;
+                Ok(u32::from_le_bytes(bytes))
+            }
+        }
+    }
+
+    fn parse_leb128_unsigned(&mut self) -> std::result::Result<u64, String> {
+        let mut slice = &self.bytes[self.curr_pos..];
+        let prev_len = slice.len();
+
+        match leb128::read::unsigned(&mut slice) {
+            Err(err) => Err(format!("expected unsigned LEB128 encoded integer: {}", err)),
+            Ok(x) => {
+                self.curr_pos += prev_len - slice.len();
+                Ok(x)
+            }
+        }
+    }
+
+    fn parse_func_section(&mut self) -> std::result::Result<Option<section::FuncSection>, String> {
+        if self.curr_pos >= self.nbytes {
+            return Ok(None);
+        }
+
+        let sec_code = section::SectionCode::from(self.bytes[self.curr_pos]);
+
+        if sec_code != section::SectionCode::Function {
+            return Ok(None);
+        }
+
+        self.curr_pos += 1;
+
+        let sec_size = self.parse_leb128_unsigned()? as usize;
+        let nfuncs = self.parse_leb128_unsigned()? as usize;
+        let mut type_indices = Vec::with_capacity(nfuncs);
+
+        for _ in 0..nfuncs {
+            type_indices.push(self.parse_leb128_unsigned()? as usize);
+        }
+
+        Ok(Some(section::FuncSection {
+            sec_code,
+            sec_size,
+            type_indices,
+        }))
     }
 }
 

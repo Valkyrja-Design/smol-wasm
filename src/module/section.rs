@@ -33,9 +33,9 @@ impl From<u8> for SectionCode {
             0x0a => Self::Code,
             0x0b => Self::Data,
             0x0c => Self::DataCount,
-            _ => panic!("invalid section code {}", value)
+            _ => panic!("invalid section code {}", value),
         }
-    }    
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -43,4 +43,11 @@ pub struct TypeSection {
     pub sec_code: SectionCode,
     pub sec_size: usize,
     pub func_types: Vec<types::FuncType>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FuncSection {
+    pub sec_code: SectionCode,
+    pub sec_size: usize,
+    pub type_indices: Vec<usize>,
 }

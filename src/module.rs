@@ -11,6 +11,7 @@ pub struct Module {
     pub magic_number: String,
     pub version: u32,
     pub type_section: Option<section::TypeSection>,
+    pub func_section: Option<section::FuncSection>,
 }
 
 impl Module {
@@ -60,7 +61,7 @@ mod tests {
     }
 
     #[test]
-    fn functions() {
+    fn function() {
         let binary = wat::parse_file("tests/functions.wat").unwrap();
         let mut module = Module::decode_raw_bytes("#raw", &binary).unwrap();
         let type_section = Some(section::TypeSection {
@@ -71,15 +72,63 @@ mod tests {
                 results: vec![types::ValueType::I64],
             }],
         });
+        let func_section = Some(section::FuncSection {
+            sec_code: section::SectionCode::Function,
+            sec_size: 0x2,
+            type_indices: vec![0],
+        });
 
         assert_eq!(module.magic_number, "\0asm", "{:#?}", module);
         assert_eq!(module.version, 1u32, "{:#?}", module);
         assert_eq!(module.type_section, type_section);
-        
+        assert_eq!(module.func_section, func_section);
+
         module = Module::decode_file("tests/functions.wasm").unwrap();
 
         assert_eq!(module.magic_number, "\0asm", "{:#?}", module);
         assert_eq!(module.version, 1u32, "{:#?}", module);
         assert_eq!(module.type_section, type_section);
+        assert_eq!(module.func_section, func_section);
+    }
+
+    #[test]
+    fn multiple_functions() {
+        let binary = wat::parse_file("tests/multi-functions.wat").unwrap();
+        let mut module = Module::decode_raw_bytes("#raw", &binary).unwrap();
+        let type_section = Some(section::TypeSection {
+            sec_code: section::SectionCode::Type,
+            sec_size: 0x0e,
+            func_types: vec![
+                types::FuncType {
+                    params: vec![types::ValueType::I32, types::ValueType::I64],
+                    results: vec![types::ValueType::I32],
+                },
+                types::FuncType {
+                    params: vec![
+                        types::ValueType::I64,
+                        types::ValueType::I32,
+                        types::ValueType::I32,
+                    ],
+                    results: vec![types::ValueType::I64],
+                },
+            ],
+        });
+        let func_section = Some(section::FuncSection {
+            sec_code: section::SectionCode::Function,
+            sec_size: 0x4,
+            type_indices: vec![0, 1, 1],
+        });
+
+        assert_eq!(module.magic_number, "\0asm", "{:#?}", module);
+        assert_eq!(module.version, 1u32, "{:#?}", module);
+        assert_eq!(module.type_section, type_section);
+        assert_eq!(module.func_section, func_section);
+
+        module = Module::decode_file("tests/multi-functions.wasm").unwrap();
+
+        assert_eq!(module.magic_number, "\0asm", "{:#?}", module);
+        assert_eq!(module.version, 1u32, "{:#?}", module);
+        assert_eq!(module.type_section, type_section);
+        assert_eq!(module.func_section, func_section);
     }
 }

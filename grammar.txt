@@ -39,7 +39,13 @@ ref_type            → (funcref = 0x70)
                     | (externref = 0x6f)
 
 import_section      → (IMPORT_SECTION        = 0x02) SECTION_SIZE
-function_section    → (FUNCTION_SECTION      = 0x03) SECTION_SIZE
+
+function_section    → (FUNCTION_SECTION      = 0x03)
+                    SECTION_SIZE
+                    NUM_FUNCTIONS
+                    type_index{NUM_FUNCTIONS}
+type_index          → u32
+
 table_section       → (TABLE_SECTION         = 0x04) SECTION_SIZE
 memory_section      → (MEMORY_SECTION        = 0x05) SECTION_SIZE
 global_section      → (GLOBAL_SECTION        = 0x06) SECTION_SIZE
