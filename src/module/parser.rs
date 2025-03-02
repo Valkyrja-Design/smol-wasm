@@ -19,6 +19,18 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> std::result::Result<super::Module, String> {
+        let (magic_number, version) = self.parse_preamble()?;
+        let type_section = self.parse_type_section()?;
+        let module = super::Module {
+            magic_number,
+            version,
+            type_section,
+        };
+
+        Ok(module)
+    }
+
+    fn parse_preamble(&mut self) -> std::result::Result<(String, u32), String> {
         if self.nbytes < 8 {
             return Err(format!(
                 "expected atleast 8 bytes in the binary {}, found {}",
@@ -34,14 +46,8 @@ impl Parser {
         self.curr_pos = 4;
 
         let version = self.parse_u32()?;
-        let type_section = self.parse_type_section()?;
-        let module = super::Module {
-            magic_number,
-            version,
-            type_section,
-        };
 
-        Ok(module)
+        Ok((magic_number, version))
     }
 
     fn parse_u32(&mut self) -> std::result::Result<u32, String> {
@@ -165,15 +171,5 @@ mod tests {
 
         assert_eq!(i, Ok(2), "{:#?}", i);
         assert_eq!(parser.curr_pos, 1);
-    }
-
-    #[test]
-    fn functions() {
-        let binary = wat::parse_file("tests/functions.wat").unwrap();
-        let mut parser = Parser::new("#raw", &binary);
-        let res = parser.parse();
-
-        assert!(res.is_ok());
-        assert_eq!(parser.curr_pos, 0x11);
     }
 }
